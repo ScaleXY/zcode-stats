@@ -40,7 +40,9 @@ Options:
   -h, --help     Show this help
 
 The database is opened strictly read-only and the web server binds to
-127.0.0.1 only. Nothing is ever written to the database file.`);
+127.0.0.1 only, serves everything under a per-session secret URL path,
+and rejects requests with any other Host header. Nothing is ever written
+to the database file.`);
 }
 
 function parseArgs(argv) {
@@ -133,7 +135,7 @@ function main() {
   });
   listen(server, opts.port)
     .then((port) => {
-      const url = `http://127.0.0.1:${port}`;
+      const url = `http://127.0.0.1:${port}${server.openPath}`;
       const mb = (meta.db.bytes / 1024 / 1024).toFixed(1);
       console.log(`zcode-stats v${VERSION}`);
       console.log(`db:     ${dbPath} (${mb} MB, opened read-only)`);

@@ -225,6 +225,11 @@
 const $ = (s, el) => (el || document).querySelector(s);
 const view = $('#view');
 
+// The app is served under a per-session secret path (/t/<token>/); all API
+// calls and the shutdown token derive from the URL we were loaded from.
+const BASE = location.pathname.replace(/\/(index\.html)?$/, '');
+const TOKEN = BASE.split('/')[2] || '';
+
 const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ESC_MAP[c]);
 const compactFmt = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 });
@@ -388,8 +393,8 @@ function getTableCount(name) {
 /* ---------------- boot ---------------- */
 async function refreshData() {
   const [meta, stats] = await Promise.all([
-    fetchJSON('/api/meta?refresh=1'),
-    fetchJSON('/api/stats'),
+    fetchJSON(`${BASE}/api/meta?refresh=1`),
+    fetchJSON(`${BASE}/api/stats`),
   ]);
   META = meta;
   STATS = stats;
@@ -404,7 +409,9 @@ function route() {
   const h = location.hash || '#/overview';
   const tableMatch = h.match(/^#\/table\/(.*)$/);
   if (tableMatch) {
-    let name = decodeURIComponent(tableMatch[1]);
+    let name;
+    try { name = decodeURIComponent(tableMatch[1]); }
+    catch { name = tableMatch[1]; }
     if (!META.tables.some((t) => t.name === name)) {
       const firstNonEmpty = META.tables.find((t) => t.count > 0) || META.tables[0];
       name = firstNonEmpty ? firstNonEmpty.name : '';
@@ -440,9 +447,9 @@ $('#shutdown').onclick = async () => {
   btn.disabled = true;
   btn.textContent = 'Stopping…';
   try {
-    await fetch('/api/shutdown', {
+    await fetch(`${BASE}/api/shutdown`, {
       method: 'POST',
-      headers: { 'x-shutdown-token': (META && META.shutdownToken) || '' },
+      headers: { 'x-shutdown-token': TOKEN },
     });
   } catch { /* server already gone — that is what we wanted */ }
   // Close the tab if the browser allows it; otherwise show a farewell screen.
@@ -954,7 +961,7 @@ async function loadTable(name) {
       sort: st.sort || '', dir: st.dir || '', q: st.q,
     });
     Object.entries(st.filters || {}).forEach(([c, v]) => params.set('f.' + c, v));
-    const data = await fetchJSON(`/api/table/${encodeURIComponent(name)}?${params}`);
+    const data = await fetchJSON(`${BASE}/api/table/${encodeURIComponent(name)}?${params}`);
     st.page = data.page; st.sort = data.sort; st.dir = data.dir;
     renderTableData(name, data);
   } catch (e) {
@@ -1067,7 +1074,7 @@ function renderTableData(name, data) {
     if (!btn) return;
     e.preventDefault();
     const { table, rowid, col } = btn.dataset;
-    fetchJSON(`/api/cell/${encodeURIComponent(table)}/${rowid}/${encodeURIComponent(col)}`)
+    fetchJSON(`${BASE}/api/cell/${encodeURIComponent(table)}/${rowid}/${encodeURIComponent(col)}`)
       .then((r) => showModal(`${table}.${col} · rowid ${rowid}${r.truncated ? ' (server-capped at 3 MB)' : ''}`, prettyCell(r.value)))
       .catch((err) => toast('Cell load failed: ' + err.message));
   }

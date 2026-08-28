@@ -1,6 +1,6 @@
 {
   "name": "zcode-stats",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Read-only web dashboard for the local ZCode CLI SQLite database (~/.zcode/cli/db/db.sqlite).",
   "license": "MIT",
   "author": "ScaleXY Private Limited",

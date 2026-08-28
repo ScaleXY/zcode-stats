@@ -57,7 +57,8 @@ zcode-stats
 npx zcode-stats
 ```
 
-Then open the printed URL (default `http://127.0.0.1:8765`). When you're
+Then open the printed URL (default `http://127.0.0.1:8765/t/<session-token>/`
+— the random token in the path is generated per run). When you're
 done, the **⏻ Stop** button in the top bar shuts the server down (with a
 confirmation) and closes the tab, or falls back to a farewell screen if the
 browser forbids script-closing it.
@@ -100,6 +101,20 @@ table and column identifier against the database schema before using it
 (search text only ever appears in bound parameters). The tool is therefore safe
 to run against a database that the ZCode CLI is actively using.
 
+### Local-server isolation
+
+Because the dashboard exposes your full session history, the server also
+defends against remote web pages reaching it through your browser:
+
+- **Host allowlist** — requests whose `Host` is not `127.0.0.1` / `localhost`
+  are rejected, which blocks DNS-rebinding attacks that would otherwise make
+  a malicious page same-origin with the dashboard.
+- **Secret URL path** — every route (UI and API) lives under a per-session
+  random `/t/<token>/` prefix; guessing the URL is impractical and the token
+  is never served over the API. The ⏻ Stop button additionally sends it in an
+  `x-shutdown-token` header, so a cross-origin page (which would need a CORS
+  preflight this server never grants) cannot shut the server down.
+
 ## How it works
 
 ```
@@ -111,7 +126,7 @@ src/server.js        loopback HTTP server + JSON API
 ui/index.html        single-file web UI (vanilla JS, no CDN dependencies)
 ```
 
-API surface:
+API surface (all routes under the per-session `/t/<token>/` prefix):
 
 | Route | Purpose |
 | --- | --- |
@@ -119,7 +134,7 @@ API surface:
 | `GET /api/stats` | all dashboard aggregates (incl. `byBucket` time series and cost estimates) |
 | `GET /api/table/:name?page=&limit=&sort=&dir=&q=&f.<col>=` | paginated table rows (per-column filters via `f.<column>=text`) |
 | `GET /api/cell/:table/:rowid/:column` | full untruncated cell value |
-| `POST /api/shutdown` | stop the server (requires the per-session token from `/api/meta` in an `x-shutdown-token` header; used by the UI's Stop button) |
+| `POST /api/shutdown` | stop the server (also requires the session token from the URL path in an `x-shutdown-token` header; used by the UI's Stop button) |
 
 ## License
 
