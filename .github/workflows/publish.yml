@@ -1,18 +1,13 @@
 name: Publish to npm
 
-# Publishes to the npm registry with provenance (a signed SLSA attestation
-# linking the package to this repository and the exact release build).
-# Requires the NPM_TOKEN secret (an npm "Automation" access token) and a
-# public package — npm only issues provenance for public packages.
-
 on:
   release:
-    types: [published]
+    types:
+      - published
   workflow_dispatch:
 
 permissions:
   contents: read
-  # Required for provenance: lets the job mint the OIDC token that npm signs.
   id-token: write
 
 concurrency:
