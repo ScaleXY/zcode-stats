@@ -1,0 +1,47 @@
+name: Publish to npm
+
+# Publishes to the npm registry with provenance (a signed SLSA attestation
+# linking the package to this repository and the exact release build).
+# Requires the NPM_TOKEN secret (an npm "Automation" access token) and a
+# public package — npm only issues provenance for public packages.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Required for provenance: lets the job mint the OIDC token that npm signs.
+  id-token: write
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        run: npm ci
+
+      - name: Sanity-check the CLI
+        run: node bin/zcode-stats.js --version
+
+      - name: Verify package contents
+        run: npm pack --dry-run
+
+      - name: Publish with provenance
+        run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

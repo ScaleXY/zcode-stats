@@ -1,0 +1,37 @@
+{
+  "name": "zcode-stats",
+  "version": "0.7.0",
+  "description": "Read-only web dashboard for the local ZCode CLI SQLite database (~/.zcode/cli/db/db.sqlite).",
+  "license": "MIT",
+  "author": "ScaleXY Private Limited",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ScaleXY/zcode-stats.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ScaleXY/zcode-stats/issues"
+  },
+  "homepage": "https://github.com/ScaleXY/zcode-stats#readme",
+  "bin": {
+    "zcode-stats": "bin/zcode-stats.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "ui/",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node bin/zcode-stats.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "keywords": [
+    "zcode",
+    "sqlite",
+    "stats",
+    "dashboard",
+    "usage"
+  ]
+}

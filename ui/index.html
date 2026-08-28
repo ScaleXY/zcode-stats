@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZCode Stats</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%8A%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0a0e15; --panel: #10151f; --panel2: #161d2a; --border: #1f2735;
+    --text: #d8dee9; --muted: #8b95a7; --accent: #5eead4; --accent2: #a78bfa;
+    --danger: #f87171; --warn: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono, th, td.num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(10, 14, 21, .92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .topbar .brand { font-weight: 700; font-size: 16px; letter-spacing: .2px; }
+  .topbar .dbinfo { color: var(--muted); font-size: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .topbar .spacer { flex: 1; }
+  .badge {
+    border: 1px solid var(--accent); color: var(--accent); border-radius: 999px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .8px; padding: 2px 9px;
+  }
+  .tabs { display: flex; gap: 4px; }
+  .tabs button {
+    background: none; border: 1px solid transparent; color: var(--muted);
+    padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13.5px; font-weight: 600;
+  }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.active { background: var(--panel2); color: var(--text); border-color: var(--border); }
+  .iconbtn {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 5px 11px; cursor: pointer; font-size: 12.5px;
+  }
+  .iconbtn:hover { border-color: var(--accent); }
+  .iconbtn.danger { color: var(--danger); border-color: rgba(248, 113, 113, .5); }
+  .iconbtn.danger:hover { border-color: var(--danger); background: rgba(248, 113, 113, .12); }
+  .iconbtn:disabled { opacity: .5; cursor: default; }
+
+  main { padding: 18px 20px 60px; max-width: 1500px; margin: 0 auto; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 18px;
+  }
+  .panel h2 { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
+  .panel h2 .sub { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 8px; }
+
+  /* ---------- KPI cards ---------- */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .kpi { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; }
+  .kpi .l { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .8px; }
+  .kpi .v { font-size: 22px; font-weight: 700; margin-top: 3px; }
+  .kpi .s { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .footnote { color: var(--muted); font-size: 11.5px; margin: -8px 2px 16px; }
+
+  /* ---------- data tables ---------- */
+  .stt-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .stt-count { color: var(--muted); font-size: 11px; }
+  .panel-filter {
+    margin-left: auto; background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 4px 9px; font-size: 12px; width: 190px;
+  }
+  .panel-filter::placeholder { color: var(--muted); }
+  .dt-wrap { overflow: auto; max-height: 560px; border-radius: 10px; border: 1px solid var(--border); }
+  table.dt { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.dt.fixed { table-layout: fixed; }
+  table.dt th {
+    position: sticky; top: 0; background: var(--panel2); color: var(--muted);
+    text-align: left; font-weight: 600; padding: 7px 10px; white-space: nowrap;
+    border-bottom: 1px solid var(--border); font-size: 12px; z-index: 2;
+  }
+  table.dt.fixed th { overflow: hidden; text-overflow: ellipsis; }
+  table.dt th.sortable { cursor: pointer; user-select: none; }
+  table.dt th.sortable:hover { color: var(--text); }
+  table.dt th .arr { color: var(--accent); font-size: 10px; }
+  table.dt td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.dt tr:last-child td { border-bottom: none; }
+  table.dt tbody tr:hover td { background: rgba(94, 234, 212, .035); }
+  td.num, th.num { text-align: right; }
+  .null { color: var(--muted); opacity: .55; font-style: italic; }
+  .zero { color: var(--muted); }
+  .err { color: var(--danger); font-weight: 600; }
+
+  /* per-column filter row (table browser) */
+  tr.filterrow th {
+    padding: 4px 6px; background: var(--panel2); border-bottom: 1px solid var(--border);
+    position: sticky; z-index: 2; box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
+  }
+  tr.filterrow th input {
+    width: 100%; min-width: 60px; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; font-size: 11.5px;
+  }
+  tr.filterrow th input:focus { outline: none; border-color: var(--accent); }
+
+  /* column resize handles */
+  .resizer {
+    position: absolute; right: 0; top: 0; width: 8px; height: 100%;
+    cursor: col-resize; z-index: 3; user-select: none;
+  }
+  .resizer:hover, .resizer.dragging { background: rgba(94, 234, 212, .35); }
+  body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-select: none !important; }
+
+  .chip {
+    background: none; border: 1px solid var(--accent2); color: var(--accent2);
+    border-radius: 6px; padding: 0 7px; cursor: pointer; font-size: 11.5px;
+    font-family: ui-monospace, Menlo, monospace;
+  }
+  .chip:hover { background: rgba(167, 139, 250, .12); }
+  .cell-text { word-break: break-word; white-space: pre-wrap; max-width: 480px; max-height: 3.4em; overflow: hidden; }
+  .datecell { white-space: nowrap; }
+  .muted { color: var(--muted); }
+
+  /* ---------- overview grids ---------- */
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); gap: 18px; }
+  .mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
+  .bar-bg { position: relative; background: var(--panel2); border-radius: 6px; height: 14px; overflow: hidden; min-width: 80px; }
+  .bar-bg .bar { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, rgba(94,234,212,.35), rgba(94,234,212,.65)); }
+  .barcell { display: flex; align-items: center; gap: 8px; min-width: 130px; }
+
+  .chart-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+  select {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 4px 8px; font-size: 12.5px;
+  }
+
+  /* ---------- tables browser ---------- */
+  .browser { display: flex; gap: 16px; align-items: flex-start; }
+  .sidebar { width: 250px; flex: none; }
+  .sidebar input {
+    width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 10px; font-size: 13px; margin-bottom: 10px;
+  }
+  .tlist { display: flex; flex-direction: column; gap: 3px; max-height: 70vh; overflow: auto; }
+  .tlist a {
+    display: flex; justify-content: space-between; gap: 8px; align-items: center;
+    padding: 6px 10px; border-radius: 8px; color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 12.5px;
+  }
+  .tlist a:hover { background: var(--panel2); text-decoration: none; }
+  .tlist a.active { background: var(--panel2); outline: 1px solid var(--accent); }
+  .tlist a.empty { opacity: .5; }
+  .tlist .cnt { color: var(--muted); font-size: 11px; }
+  .content { flex: 1; min-width: 0; }
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .toolbar input[type="search"] {
+    flex: 1; min-width: 200px; background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 13px;
+  }
+  .pager { display: flex; gap: 6px; align-items: center; }
+  .pager button { background: var(--panel2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 4px 10px; cursor: pointer; }
+  .pager button:disabled { opacity: .4; cursor: default; }
+
+  /* ---------- modal & toast ---------- */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(4, 6, 10, .6); backdrop-filter: blur(3px);
+    display: none; align-items: center; justify-content: center; z-index: 100; padding: 30px;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    width: min(920px, 100%); max-height: 82vh; display: flex; flex-direction: column;
+  }
+  .modal header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .modal header .title { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .modal pre {
+    margin: 0; padding: 16px; overflow: auto; font-size: 12px; line-height: 1.45;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word;
+  }
+  .toast {
+    position: fixed; right: 18px; bottom: 18px; z-index: 200; background: var(--panel2);
+    border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; font-size: 13px; display: none; max-width: 380px;
+  }
+  .toast.show { display: block; }
+  .spin { color: var(--muted); padding: 30px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="brand">📊 ZCode Stats</span>
+  <span class="badge" title="Opened with SQLite readOnly + query_only. This tool never writes to the database.">READ-ONLY</span>
+  <span class="dbinfo" id="dbinfo"></span>
+  <span class="spacer"></span>
+  <nav class="tabs">
+    <button id="tab-overview">Overview</button>
+    <button id="tab-tables">Tables</button>
+  </nav>
+  <button class="iconbtn" id="refresh" title="Re-read stats from the database">⟳ Refresh</button>
+  <button class="iconbtn danger" id="shutdown" title="Stop the server and close this tab">⏻ Stop</button>
+</div>
+
+<main id="view"><div class="spin">Loading…</div></main>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <header>
+      <span class="title" id="modal-title"></span>
+      <button class="iconbtn" id="modal-copy">Copy</button>
+      <button class="iconbtn" id="modal-close">✕ Close</button>
+    </header>
+    <pre id="modal-body"></pre>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ---------------- helpers ---------------- */
+const $ = (s, el) => (el || document).querySelector(s);
+const view = $('#view');
+
+const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ESC_MAP[c]);
+const compactFmt = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 });
+
+const fmtInt = (n) => (n == null ? '—' : Number(n).toLocaleString('en-US'));
+const fmtCompact = (n) => (n == null ? '—' : compactFmt.format(Number(n)));
+function fmtUSD(v, compact) {
+  if (v == null || isNaN(v)) return '—';
+  if (compact) return '$' + compactFmt.format(v);
+  return '$' + v.toLocaleString('en-US', {
+    minimumFractionDigits: v >= 1000 ? 0 : 2,
+    maximumFractionDigits: v >= 1000 ? 0 : 2,
+  });
+}
+function fmtBytes(n) {
+  if (n == null) return '—';
+  if (n < 1024) return n + ' B';
+  const u = ['KB', 'MB', 'GB', 'TB'];
+  let v = n / 1024, i = 0;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  return v.toFixed(v >= 100 ? 0 : 1) + ' ' + u[i];
+}
+function fmtDur(ms) {
+  if (ms == null) return '—';
+  if (ms < 1000) return Math.round(ms) + ' ms';
+  if (ms < 60000) return (ms / 1000).toFixed(1) + ' s';
+  if (ms < 3.6e6) return Math.floor(ms / 60000) + 'm ' + Math.round((ms % 60000) / 1000) + 's';
+  return (ms / 3.6e6).toFixed(1) + ' h';
+}
+const fmtDate = (ms) =>
+  ms == null
+    ? '—'
+    : new Date(ms).toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+      });
+const fmtDay = (dstr) =>
+  new Date(dstr + 'T00:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+const TIMEISH_COL = /^(time_|.*_at$|time$)/;
+const looksLikeEpochMs = (v) => typeof v === 'number' && v > 1e12 && v < 4e13;
+
+function loadJSON(key) {
+  try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+}
+function saveJSON(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch { /* storage unavailable */ }
+}
+
+let toastTimer;
+function toast(msg, ms) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), ms || 3200);
+}
+
+async function fetchJSON(url) {
+  const r = await fetch(url);
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.error || r.statusText);
+  return body;
+}
+
+function showModal(title, text) {
+  $('#modal-title').textContent = title;
+  $('#modal-body').textContent = text;
+  $('#overlay').classList.add('show');
+  $('#modal-copy').onclick = async () => {
+    try { await navigator.clipboard.writeText(text); toast('Copied to clipboard'); }
+    catch { toast('Clipboard unavailable'); }
+  };
+}
+$('#modal-close').onclick = () => $('#overlay').classList.remove('show');
+$('#overlay').addEventListener('click', (e) => { if (e.target === $('#overlay')) $('#overlay').classList.remove('show'); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#overlay').classList.remove('show'); });
+
+/* ---------------- resizable columns ---------------- */
+/**
+ * Adds drag-to-resize handles to a table's header cells. Widths are persisted
+ * per storage key; the table switches to fixed layout once any width is set
+ * (auto layout keeps the content-driven default until then). Double-click a
+ * handle to reset that column.
+ */
+function makeResizable(table, storageKey, colNames) {
+  if (!table || !colNames.length) return;
+
+  const widths = loadJSON(storageKey) || {};
+
+  let colgroup = table.querySelector('colgroup');
+  if (colgroup) colgroup.remove();
+  colgroup = document.createElement('colgroup');
+  const cols = colNames.map(() => colgroup.appendChild(document.createElement('col')));
+  table.insertBefore(colgroup, table.firstChild);
+
+  const applyWidths = () => {
+    const hasAny = Object.keys(widths).length > 0;
+    table.classList.toggle('fixed', hasAny);
+    colNames.forEach((n, i) => { cols[i].style.width = widths[n] ? widths[n] + 'px' : ''; });
+  };
+  applyWidths();
+
+  const ths = [...table.querySelectorAll('thead tr:first-child th')];
+  ths.forEach((th, i) => {
+    const old = th.querySelector('.resizer');
+    if (old) old.remove();
+    const name = colNames[i];
+    if (!name) return;
+
+    const handle = document.createElement('div');
+    handle.className = 'resizer';
+    handle.title = 'Drag to resize · double-click to reset';
+    handle.addEventListener('click', (e) => e.stopPropagation());
+    handle.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      delete widths[name];
+      saveJSON(storageKey, widths);
+      applyWidths();
+    });
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startW = th.getBoundingClientRect().width;
+      handle.classList.add('dragging');
+      document.body.classList.add('col-resizing');
+      const onMove = (ev) => {
+        widths[name] = Math.max(50, Math.round(startW + ev.clientX - startX));
+        applyWidths();
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        handle.classList.remove('dragging');
+        document.body.classList.remove('col-resizing');
+        saveJSON(storageKey, widths);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+    th.appendChild(handle);
+  });
+}
+
+/* ---------------- state ---------------- */
+let META = null;
+let STATS = null;
+const tableState = new Map(); // name -> {q, sort, dir, limit, page, filters}
+const statRegistry = new Map(); // table id -> {headers, rows, sortKey, sortDir, q}
+let statSeq = 0;
+let chartMetric = loadJSON('zcs:chart-metric') || 'total_tokens';
+let chartGran = loadJSON('zcs:chart-gran') || 'daily';
+let currentTable = null;
+
+function getTableCount(name) {
+  const t = META.tables.find((t) => t.name === name);
+  return t ? t.count : 0;
+}
+
+/* ---------------- boot ---------------- */
+async function refreshData() {
+  const [meta, stats] = await Promise.all([
+    fetchJSON('/api/meta?refresh=1'),
+    fetchJSON('/api/stats'),
+  ]);
+  META = meta;
+  STATS = stats;
+  $('#dbinfo').innerHTML =
+    `<span title="${esc(META.db.path)}">${esc(META.db.path)}</span>` +
+    `<span>· ${fmtBytes(META.db.bytes)}</span>` +
+    (META.db.walBytes != null ? `<span>· wal ${fmtBytes(META.db.walBytes)}</span>` : '') +
+    `<span>· ${META.tables.length} tables</span>`;
+}
+
+function route() {
+  const h = location.hash || '#/overview';
+  const tableMatch = h.match(/^#\/table\/(.*)$/);
+  if (tableMatch) {
+    let name = decodeURIComponent(tableMatch[1]);
+    if (!META.tables.some((t) => t.name === name)) {
+      const firstNonEmpty = META.tables.find((t) => t.count > 0) || META.tables[0];
+      name = firstNonEmpty ? firstNonEmpty.name : '';
+    }
+    $('#tab-overview').classList.remove('active');
+    $('#tab-tables').classList.add('active');
+    if (name) { renderTableView(name); return; }
+  }
+  location.hash = '#/overview';
+  $('#tab-overview').classList.add('active');
+  $('#tab-tables').classList.remove('active');
+  renderOverview();
+}
+
+$('#tab-overview').onclick = () => { location.hash = '#/overview'; };
+$('#tab-tables').onclick = () => {
+  if (!currentTable) {
+    const t = META.tables.find((t) => t.count > 0) || META.tables[0];
+    currentTable = t ? t.name : null;
+  }
+  location.hash = currentTable ? '#/table/' + encodeURIComponent(currentTable) : '#/overview';
+};
+$('#refresh').onclick = async () => {
+  try {
+    await refreshData();
+    toast('Refreshed from database');
+    route();
+  } catch (e) { toast('Refresh failed: ' + e.message); }
+};
+$('#shutdown').onclick = async () => {
+  if (!confirm('Stop the zcode-stats server?')) return;
+  const btn = $('#shutdown');
+  btn.disabled = true;
+  btn.textContent = 'Stopping…';
+  try {
+    await fetch('/api/shutdown', {
+      method: 'POST',
+      headers: { 'x-shutdown-token': (META && META.shutdownToken) || '' },
+    });
+  } catch { /* server already gone — that is what we wanted */ }
+  // Close the tab if the browser allows it; otherwise show a farewell screen.
+  setTimeout(() => { try { window.close(); } catch { /* blocked */ } }, 150);
+  setTimeout(() => {
+    document.body.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:8px;' +
+      'font:15px/1.5 ui-sans-serif,system-ui,sans-serif;color:#d8dee9;background:#0a0e15">' +
+      '<div style="font-size:42px">⏹</div><div>Server stopped.</div>' +
+      '<div style="color:#8b95a7">The database was never modified — you can close this tab now.</div></div>';
+  }, 450);
+};
+window.addEventListener('hashchange', route);
+
+(async function boot() {
+  try {
+    await refreshData();
+    route();
+  } catch (e) {
+    view.innerHTML = `<div class="panel"><h2>Failed to load</h2><p class="err">${esc(e.message)}</p></div>`;
+  }
+})();
+
+/* ================= OVERVIEW ================= */
+function renderOverview() {
+  const s = STATS;
+  const mt = s.modelTotals || {};
+  const tt = s.turnTotals || {};
+  const toolCalls = getTableCount('tool_usage');
+  const toolErrors = (s.tools || []).reduce((a, t) => a + (t.errors || 0), 0);
+
+  const kpis = [
+    ['Sessions', fmtInt(getTableCount('session')), ''],
+    ['Projects', fmtInt((s.projects || []).length), ''],
+    ['Messages', fmtInt(getTableCount('message')), (s.messagesByRole || []).map((r) => `${r.c} ${r.role}`).join(' · ')],
+    ['Parts', fmtInt(getTableCount('part')), ''],
+    ['Turns', fmtInt(tt.turns), tt.avg_duration_ms != null ? 'avg ' + fmtDur(tt.avg_duration_ms) : ''],
+    ['Model requests', fmtInt(mt.requests), ''],
+    ['Tool calls', fmtInt(toolCalls), toolErrors ? toolErrors + ' errors' : ''],
+    ['Total tokens', fmtCompact(mt.total_tokens), fmtInt(mt.total_tokens)],
+    ['Output tokens', fmtCompact(mt.output_tokens), fmtInt(mt.output_tokens)],
+    ['Cache-read tokens', fmtCompact(mt.cache_read_tokens), fmtInt(mt.cache_read_tokens)],
+    ['Avg TTFT', fmtDur(mt.avg_ttft_ms), 'time to first token'],
+    ['Est. spend', mt.est_cost_usd != null ? fmtUSD(mt.est_cost_usd) : '—',
+      mt.est_cost_usd != null
+        ? 'API list price' + (mt.cost_coverage != null && mt.cost_coverage < 0.999
+            ? ` · ${(mt.cost_coverage * 100).toFixed(1)}% of input tokens priced`
+            : '')
+        : 'no pricing data'],
+    ['Span', mt.first_activity_ms ? fmtDate(mt.first_activity_ms).split(',')[0] + ' → ' + fmtDate(mt.last_activity_ms).split(',')[0] : '—', 'first → last model activity'],
+  ];
+
+  const kpiHtml = kpis.map(([l, v, sub]) =>
+    `<div class="kpi"><div class="l">${esc(l)}</div><div class="v">${esc(v)}</div>${sub ? `<div class="s">${esc(sub)}</div>` : ''}</div>`
+  ).join('');
+
+  const pinfo = s.pricing || {};
+  const footnote = pinfo.notes
+    ? `<div class="footnote" title="${esc((pinfo.notes || []).join(' '))}">💰 Cost estimates use Z.ai list prices as of ${esc(pinfo.asOf || '?')} (<a href="${esc(pinfo.source || '#')}" target="_blank" rel="noreferrer">source</a>). ${esc(pinfo.notes ? pinfo.notes[pinfo.notes.length - 1] : '')}</div>`
+    : '';
+
+  const html = [];
+  html.push(`<div class="cards">${kpiHtml}</div>`);
+  html.push(footnote);
+  html.push(chartPanel());
+  html.push(`<div class="grid2">${modelsPanel()}${toolsPanel()}</div>`);
+  html.push(projectsPanel());
+  html.push(`<div class="mini-grid">${breakdownPanels()}</div>`);
+  html.push(dbTablesPanel());
+  view.innerHTML = html.join('');
+  enhanceStatTables();
+  wireChart();
+}
+
+/* ----- overview smart tables: client-side sort + filter + resize ----- */
+function statCell(h, r) {
+  const raw = r[h.key];
+  let cell;
+  if (h.fmt) cell = h.fmt(raw, r);
+  else if (raw == null) cell = '<span class="null">NULL</span>';
+  else if (typeof raw === 'number') cell = esc(fmtInt(raw));
+  else cell = esc(raw);
+  const title = h.title ? ` title="${esc(h.title(raw, r) || '')}"` : '';
+  return `<td class="${h.num ? 'num' : ''}"${title}>${cell}</td>`;
+}
+
+function statsTable(headers, rows, opts) {
+  opts = opts || {};
+  const tid = opts.id || 'st' + (++statSeq);
+  statRegistry.set(tid, { headers, rows: rows.slice(), sortKey: null, sortDir: null, q: '' });
+  const thead = headers
+    .map((h) => `<th class="sortable${h.num ? ' num' : ''}" data-key="${esc(h.key)}">${esc(h.label)}<span class="arr"></span></th>`)
+    .join('');
+  return `<div class="stt">
+    <div class="stt-tools"><span class="stt-count"></span><input class="panel-filter" data-tid="${esc(tid)}" placeholder="Filter rows…"></div>
+    <div class="dt-wrap"><table class="dt" data-tid="${esc(tid)}"><thead><tr>${thead}</tr></thead><tbody></tbody></table></div>
+  </div>`;
+}
+
+function drawStatBody(table, reg) {
+  let rows = reg.rows;
+  if (reg.q) {
+    rows = rows.filter((r) =>
+      reg.headers.some((h) => String(r[h.key] ?? '').toLowerCase().includes(reg.q))
+    );
+  }
+  if (reg.sortKey) {
+    const dir = reg.sortDir === 'asc' ? 1 : -1;
+    rows = rows.slice().sort((a, b) => {
+      const av = a[reg.sortKey];
+      const bv = b[reg.sortKey];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+      return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' }) * dir;
+    });
+  }
+  table.tBodies[0].innerHTML = rows.length
+    ? rows.map((r) => '<tr>' + reg.headers.map((h) => statCell(h, r)).join('') + '</tr>').join('')
+    : `<tr><td colspan="${reg.headers.length}" class="muted" style="text-align:center;padding:18px">no rows${reg.q ? ' match the filter' : ''}</td></tr>`;
+  const wrap = table.closest('.stt');
+  if (wrap) {
+    const c = wrap.querySelector('.stt-count');
+    if (c) c.textContent = `${fmtInt(rows.length)} row${rows.length === 1 ? '' : 's'}${reg.rows.length !== rows.length ? ` (of ${fmtInt(reg.rows.length)})` : ''}`;
+  }
+  table.querySelectorAll('thead th .arr').forEach((arr) => { arr.textContent = ''; });
+  if (reg.sortKey) {
+    const th = table.querySelector(`thead th[data-key="${CSS.escape(reg.sortKey)}"] .arr`);
+    if (th) th.textContent = reg.sortDir === 'asc' ? '▲' : '▼';
+  }
+}
+
+function enhanceStatTables() {
+  document.querySelectorAll('table.dt[data-tid]').forEach((table) => {
+    const reg = statRegistry.get(table.dataset.tid);
+    if (!reg) return;
+    drawStatBody(table, reg);
+    makeResizable(table, 'zcs:colw:ov:' + table.dataset.tid, reg.headers.map((h) => h.key));
+    table.querySelectorAll('thead th').forEach((th) => {
+      th.onclick = () => {
+        const key = th.dataset.key;
+        if (reg.sortKey === key) reg.sortDir = reg.sortDir === 'asc' ? 'desc' : 'asc';
+        else { reg.sortKey = key; reg.sortDir = 'desc'; }
+        drawStatBody(table, reg);
+      };
+    });
+    const filter = table.closest('.stt')?.querySelector('.panel-filter');
+    if (filter && !filter.dataset.wired) {
+      filter.dataset.wired = '1';
+      let t;
+      filter.addEventListener('input', () => {
+        clearTimeout(t);
+        t = setTimeout(() => { reg.q = filter.value.trim().toLowerCase(); drawStatBody(table, reg); }, 150);
+      });
+    }
+  });
+}
+
+/* ----- chart ----- */
+const GRAN_DEFS = {
+  hourly: { label: 'Hourly', word: 'hours' },
+  h3: { label: '3 hours', word: '3h periods' },
+  h6: { label: '6 hours', word: '6h periods' },
+  daily: { label: 'Daily', word: 'days' },
+  weekly: { label: 'Weekly', word: 'weeks' },
+};
+
+function chartPanel() {
+  return `<div class="panel">
+    <h2>Activity
+      <span class="sub">from model_usage</span>
+    </h2>
+    <div class="chart-controls">
+      <label class="muted">Granularity</label>
+      <select id="chart-gran">
+        ${Object.entries(GRAN_DEFS).map(([k, d]) =>
+          `<option value="${k}"${chartGran === k ? ' selected' : ''}>${d.label}</option>`).join('')}
+      </select>
+      <label class="muted">Metric</label>
+      <select id="chart-metric">
+        <option value="total_tokens"${chartMetric === 'total_tokens' ? ' selected' : ''}>Total tokens</option>
+        <option value="requests"${chartMetric === 'requests' ? ' selected' : ''}>Model requests</option>
+        <option value="output_tokens"${chartMetric === 'output_tokens' ? ' selected' : ''}>Output tokens</option>
+        <option value="cost_usd"${chartMetric === 'cost_usd' ? ' selected' : ''}>Est. cost ($)</option>
+      </select>
+      <span class="muted" id="chart-sum"></span>
+    </div>
+    <div id="chart"></div>
+  </div>`;
+}
+
+function wireChart() {
+  const granSel = $('#chart-gran');
+  const sel = $('#chart-metric');
+  if (!sel) return;
+  granSel.onchange = () => { chartGran = granSel.value; saveJSON('zcs:chart-gran', chartGran); drawChart(); };
+  sel.onchange = () => { chartMetric = sel.value; saveJSON('zcs:chart-metric', chartMetric); drawChart(); };
+  drawChart();
+}
+
+/** Bucket floor in local time, mirroring the server's bucketing. */
+function bucketFloor(gran) {
+  const block = (h) => (t) => {
+    const d = new Date(t);
+    d.setMinutes(0, 0, 0);
+    d.setHours(d.getHours() - (d.getHours() % h));
+    return d.getTime();
+  };
+  if (gran === 'hourly') return block(1);
+  if (gran === 'h3') return block(3);
+  if (gran === 'h6') return block(6);
+  if (gran === 'weekly') {
+    return (t) => {
+      const d = new Date(t);
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      return d.getTime();
+    };
+  }
+  return (t) => {
+    const d = new Date(t);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+}
+
+function bucketRows(gran) {
+  if (STATS.byBucket && STATS.byBucket[gran]) return STATS.byBucket[gran];
+  // Fallback for older API responses without byBucket.
+  if (gran === 'daily' && STATS.byDay) {
+    return STATS.byDay.map((r) => ({
+      t: Date.parse(r.day + 'T00:00:00Z'),
+      requests: r.requests,
+      total_tokens: r.total_tokens,
+      output_tokens: r.output_tokens,
+      cost_usd: r.cost_usd || 0,
+    }));
+  }
+  return [];
+}
+
+function bucketLabel(t, gran) {
+  const d = new Date(t);
+  if (gran === 'hourly' || gran === 'h3' || gran === 'h6') {
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+      ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  if (gran === 'weekly') return 'wk of ' + d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function drawChart() {
+  const el = $('#chart');
+  if (!el) return;
+  const gran = chartGran;
+  const rows = bucketRows(gran);
+  if (!rows.length) {
+    el.innerHTML = '<div class="muted" style="padding:28px;text-align:center">no data</div>';
+    return;
+  }
+  const floorTs = bucketFloor(gran);
+  const stepMs = gran === 'hourly' ? 3600e3 : gran === 'h3' ? 3 * 3600e3
+    : gran === 'h6' ? 6 * 3600e3 : gran === 'daily' ? 86400e3 : 604800e3;
+
+  // Full continuous bucket range from first to last data (incl. now), so all
+  // available data is shown; gaps become zero-valued points.
+  const byT = new Map(rows.map((r) => [r.t, r]));
+  const last = Math.max(floorTs(Date.now()), rows[rows.length - 1].t);
+  const buckets = [];
+  for (let t = rows[0].t; t <= last && buckets.length < 10000;) {
+    const row = byT.get(t);
+    buckets.push({ t, v: row ? Number(row[chartMetric] || 0) : 0, req: row ? row.requests : 0 });
+    let next = floorTs(t + stepMs);
+    if (next <= t) next = floorTs(t + 3600e3); // DST safety
+    t = next;
+  }
+  const n = buckets.length;
+
+  const sum = buckets.reduce((a, b) => a + b.v, 0);
+  const sumEl = $('#chart-sum');
+  if (sumEl) {
+    const label = chartMetric === 'requests' ? 'requests' : chartMetric === 'cost_usd' ? 'est. cost' : 'tokens';
+    const val = chartMetric === 'cost_usd' ? fmtUSD(sum, true) : fmtCompact(sum);
+    sumEl.textContent = `Σ ${val} ${label} · ${fmtInt(n)} ${GRAN_DEFS[gran].word}`;
+  }
+
+  const W = 920, H = 230, padL = 56, padR = 8, padT = 12, padB = 26;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const max = Math.max(1, ...buckets.map((b) => b.v));
+  const niceMax = niceCeil(max);
+  const x = (i) => padL + (n === 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const y = (v) => padT + plotH - (v / niceMax) * plotH;
+  const baseY = padT + plotH;
+
+  const pts = buckets.map((b, i) => `${x(i).toFixed(2)},${y(b.v).toFixed(2)}`);
+  const line = n > 1
+    ? `<polyline points="${pts.join(' ')}" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`
+    : '';
+  const area = n > 1
+    ? `<polygon points="${padL},${baseY} ${pts.join(' ')} ${x(n - 1).toFixed(2)},${baseY}" fill="url(#areaGrad)"/>`
+    : '';
+  const dots = n <= 60
+    ? buckets.map((b, i) => `<circle cx="${x(i).toFixed(2)}" cy="${y(b.v).toFixed(2)}" r="2.6" fill="var(--accent)"><title>${esc(tipFor(b, gran))}</title></circle>`).join('')
+    : '';
+  // Transparent hover columns keep per-bucket tooltips even at 720+ points.
+  const bw = plotW / n;
+  const hover = buckets.map((b, i) =>
+    `<rect x="${(padL + i * bw).toFixed(2)}" y="${padT}" width="${Math.ceil(bw)}" height="${plotH}" fill="transparent"><title>${esc(tipFor(b, gran))}</title></rect>`
+  ).join('');
+
+  const grid = [0, 0.25, 0.5, 0.75, 1].map((f) => {
+    const gy = baseY - f * plotH;
+    return `<line x1="${padL}" y1="${gy}" x2="${W - padR}" y2="${gy}" stroke="#1c2432"/>` +
+      `<text x="${padL - 6}" y="${gy + 3.5}" text-anchor="end" font-size="10" fill="#8b95a7">${chartMetric === 'cost_usd' ? '$' : ''}${compactFmt.format(niceMax * f)}</text>`;
+  }).join('');
+
+  const stride = Math.max(1, Math.round(n / 10));
+  const xlabels = buckets.map((b, i) => {
+    if (i % stride !== 0 && i !== n - 1) return '';
+    return `<text x="${x(i).toFixed(2)}" y="${H - 8}" font-size="10" fill="#8b95a7" text-anchor="${i === n - 1 && n > 1 ? 'end' : 'start'}">${esc(bucketLabel(b.t, gran))}</text>`;
+  }).join('');
+
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+    <defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02"/>
+    </linearGradient></defs>
+    ${grid}${area}${line}${dots}${hover}${xlabels}
+  </svg>`;
+}
+
+function tipFor(b, gran) {
+  return `${bucketLabel(b.t, gran)} — ${chartMetric === 'cost_usd' ? fmtUSD(b.v) : fmtCompact(b.v) + ' ' + (chartMetric === 'requests' ? 'requests' : 'tokens')} · ${fmtInt(b.req)} req`;
+}
+
+function niceCeil(v) {
+  const pow = Math.pow(10, Math.floor(Math.log10(v)));
+  const n = v / pow;
+  const nice = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+  return nice * pow;
+}
+
+/* ----- models / tools / projects ----- */
+function modelsPanel() {
+  const rows = STATS.models || [];
+  return `<div class="panel"><h2>Models <span class="sub">${rows.length} · from model_usage · cost est. at Z.ai list prices</span></h2>${statsTable([
+    { key: 'model_id', label: 'Model' },
+    { key: 'provider_id', label: 'Provider', fmt: (v) => `<span class="muted" title="${esc(v)}">${esc(String(v).split(':').pop())}</span>` },
+    { key: 'requests', label: 'Req', num: true },
+    { key: 'input_tokens', label: 'Input', num: true, fmt: fmtCompact, title: fmtInt },
+    { key: 'output_tokens', label: 'Output', num: true, fmt: fmtCompact, title: fmtInt },
+    { key: 'reasoning_tokens', label: 'Reason', num: true, fmt: fmtCompact, title: fmtInt },
+    { key: 'cache_read_tokens', label: 'Cache R', num: true, fmt: fmtCompact, title: fmtInt },
+    { key: 'total_tokens', label: 'Total', num: true, fmt: fmtCompact, title: fmtInt },
+    { key: 'est_cost_usd', label: 'Est. cost', num: true, fmt: (v, r) => (r.rates && r.rates.free ? '<span class="zero">$0 · free</span>' : v == null ? '<span class="null" title="no pricing data for this model">n/a</span>' : `<span title="${fmtUSD(v)} at ${esc(String(r.model_id))} rates">${fmtUSD(v)}</span>`), title: (v) => (v == null ? '' : fmtUSD(v)) },
+    { key: 'avg_ttft_ms', label: 'Avg TTFT', num: true, fmt: fmtDur },
+    { key: 'avg_duration_ms', label: 'Avg dur', num: true, fmt: fmtDur },
+    { key: 'errors', label: 'Err', num: true, fmt: (v) => (v ? `<span class="err">${fmtInt(v)}</span>` : '<span class="zero">0</span>') },
+    { key: 'last_used_ms', label: 'Last used', fmt: fmtDate },
+  ], rows, { id: 'models' })}</div>`;
+}
+
+function toolsPanel() {
+  const rows = STATS.tools || [];
+  return `<div class="panel"><h2>Tools <span class="sub">${rows.length} · from tool_usage</span></h2>${statsTable([
+    { key: 'tool_name', label: 'Tool' },
+    { key: 'calls', label: 'Calls', num: true },
+    { key: 'errors', label: 'Err', num: true, fmt: (v) => (v ? `<span class="err">${fmtInt(v)}</span>` : '<span class="zero">0</span>') },
+    { key: 'avg_duration_ms', label: 'Avg dur', num: true, fmt: fmtDur },
+    { key: 'max_duration_ms', label: 'Max dur', num: true, fmt: fmtDur },
+    { key: 'output_bytes', label: 'Output', num: true, fmt: fmtBytes, title: (v) => fmtInt(v) + ' B' },
+    { key: 'read_only_calls', label: 'RO', num: true },
+    { key: 'destructive_calls', label: 'Destr', num: true },
+    { key: 'last_used_ms', label: 'Last used', fmt: fmtDate },
+  ], rows, { id: 'tools' })}</div>`;
+}
+
+function projectsPanel() {
+  const rows = STATS.projects || [];
+  const maxTok = Math.max(1, ...rows.map((r) => Number(r.total_tokens || 0)));
+  return `<div class="panel"><h2>Projects <span class="sub">${rows.length} · by session.directory</span></h2>${statsTable([
+    { key: 'directory', label: 'Directory' },
+    { key: 'sessions', label: 'Sess', num: true, title: (v, r) => `${r.interactive} interactive · ${r.subagent_children} subagent · ${r.forks} fork` },
+    { key: 'messages', label: 'Msgs', num: true, fmt: fmtCompact, title: fmtInt },
+    { key: 'requests', label: 'Req', num: true, fmt: fmtCompact, title: fmtInt },
+    { key: 'output_tokens', label: 'Output', num: true, fmt: fmtCompact, title: fmtInt },
+    { key: 'total_tokens', label: 'Total tokens', num: true, fmt: (v) => `<span class="barcell"><span class="bar-bg"><span class="bar" style="width:${(100 * v / maxTok).toFixed(1)}%"></span></span>${fmtCompact(v)}</span>`, title: fmtInt },
+    { key: 'est_cost_usd', label: 'Est. cost', num: true, fmt: fmtUSD, title: (v) => (v == null ? '' : fmtUSD(v)) },
+    { key: 'last_active_ms', label: 'Last active', fmt: fmtDate },
+  ], rows, { id: 'projects' })}</div>`;
+}
+
+/* ----- small breakdowns ----- */
+function breakdownPanels() {
+  const panels = [];
+  const simple = (title, rows, nameKey, id) => {
+    const max = Math.max(1, ...rows.map((r) => r.c));
+    panels.push(`<div class="panel"><h2>${esc(title)}</h2>${statsTable([
+      { key: nameKey, label: title.split(' ')[0].replace(/s$/, '') },
+      { key: 'c', label: 'Count', num: true, fmt: (v) => `<span class="barcell"><span class="bar-bg"><span class="bar" style="width:${(100 * v / max).toFixed(1)}%"></span></span>${fmtInt(v)}</span>` },
+    ], rows, { id })}</div>`);
+  };
+  if (STATS.messagesByRole) simple('Messages by role', STATS.messagesByRole, 'role', 'bd-role');
+  if (STATS.partsByType) simple('Parts by type', STATS.partsByType, 'type', 'bd-part');
+  if (STATS.sessionsByTaskType) simple('Sessions by task type', STATS.sessionsByTaskType, 'task_type', 'bd-task');
+  if (STATS.todosByStatus) simple('Todos by status', STATS.todosByStatus, 'status', 'bd-todo');
+  if (STATS.inputHistoryByKind) simple('Input history by kind', STATS.inputHistoryByKind, 'kind', 'bd-kind');
+  if (STATS.sessionInputByStatus) simple('Session inputs by status', STATS.sessionInputByStatus, 'status', 'bd-input');
+  if (STATS.sessionsByVersion) {
+    panels.push(`<div class="panel"><h2>ZCode versions used</h2>${statsTable([
+      { key: 'version', label: 'Version' },
+      { key: 'c', label: 'Sessions', num: true },
+      { key: 'first_ms', label: 'First seen', fmt: fmtDate },
+      { key: 'last_ms', label: 'Last seen', fmt: fmtDate },
+    ], STATS.sessionsByVersion, { id: 'versions' })}</div>`);
+  }
+  return panels.join('');
+}
+
+function dbTablesPanel() {
+  const rows = META.tables.map((t) => ({ ...t }));
+  return `<div class="panel"><h2>Database tables <span class="sub">click a name to browse it</span></h2>${statsTable([
+    { key: 'name', label: 'Table', fmt: (v) => `<a href="#/table/${encodeURIComponent(v)}">${esc(v)}</a>` },
+    { key: 'count', label: 'Rows', num: true, fmt: (v) => (v === 0 ? '<span class="zero">0 (empty)</span>' : fmtInt(v)) },
+    { key: 'columns', label: 'Columns', num: true, fmt: (v) => fmtInt(v.length), title: (v) => v.map((c) => `${c.name} ${c.type}`).join('\n') },
+  ], rows, { id: 'dbtables' })}</div>`;
+}
+
+/* ================= TABLES BROWSER ================= */
+function renderTableView(name) {
+  currentTable = name;
+  let st = tableState.get(name);
+  if (!st) {
+    st = { q: '', sort: null, dir: null, limit: 50, page: 1, filters: {} };
+    tableState.set(name, st);
+  }
+
+  view.innerHTML = `
+    <div class="browser">
+      <aside class="sidebar">
+        <input type="search" id="tlist-filter" placeholder="Filter tables…">
+        <div class="tlist" id="tlist"></div>
+      </aside>
+      <section class="content">
+        <div class="toolbar">
+          <input type="search" id="tbl-q" placeholder="Search all text columns… (substring, case-insensitive)">
+          <button class="iconbtn" id="tbl-reset" title="Clear search, column filters and sorting">Reset</button>
+          <select id="tbl-limit">
+            <option>25</option><option>50</option><option>100</option><option>250</option>
+          </select>
+          <div class="pager">
+            <button id="pg-first">«</button>
+            <button id="pg-prev">‹ Prev</button>
+            <span id="pg-info" class="muted"></span>
+            <button id="pg-next">Next ›</button>
+            <button id="pg-last">»</button>
+          </div>
+        </div>
+        <div class="panel" style="padding:0" id="tbl-panel"><div class="spin">Loading ${esc(name)}…</div></div>
+      </section>
+    </div>`;
+
+  renderSidebar(name, '');
+
+  $('#tlist-filter').oninput = (e) => renderSidebar(name, e.target.value.trim().toLowerCase());
+  $('#tbl-q').value = st.q;
+  let qTimer;
+  $('#tbl-q').oninput = (e) => {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => { st.q = e.target.value; st.page = 1; loadTable(name); }, 350);
+  };
+  $('#tbl-reset').onclick = () => {
+    st.q = ''; st.filters = {}; st.sort = null; st.dir = null; st.page = 1;
+    $('#tbl-q').value = '';
+    loadTable(name);
+    toast('Cleared search, filters and sorting');
+  };
+  const limitSel = $('#tbl-limit');
+  limitSel.value = String(st.limit);
+  limitSel.onchange = () => { st.limit = parseInt(limitSel.value, 10); st.page = 1; loadTable(name); };
+  $('#pg-first').onclick = () => { st.page = 1; loadTable(name); };
+  $('#pg-prev').onclick = () => { st.page = Math.max(1, st.page - 1); loadTable(name); };
+  $('#pg-next').onclick = () => { st.page += 1; loadTable(name); };
+  $('#pg-last').onclick = () => { st.page = 1e9; loadTable(name); };
+
+  loadTable(name);
+}
+
+function renderSidebar(active, filter) {
+  const list = $('#tlist');
+  if (!list) return;
+  list.innerHTML = META.tables
+    .filter((t) => !filter || t.name.includes(filter))
+    .map((t) =>
+      `<a href="#/table/${encodeURIComponent(t.name)}" class="${t.name === active ? 'active' : ''}${t.count === 0 ? ' empty' : ''}">
+        <span>${esc(t.name)}</span><span class="cnt">${t.count < 0 ? '?' : fmtCompact(t.count)}</span>
+      </a>`)
+    .join('') || '<span class="muted" style="padding:6px 10px">no match</span>';
+}
+
+async function loadTable(name) {
+  const st = tableState.get(name);
+  const panel = $('#tbl-panel');
+  if (!panel) return;
+  try {
+    const params = new URLSearchParams({
+      page: String(st.page), limit: String(st.limit),
+      sort: st.sort || '', dir: st.dir || '', q: st.q,
+    });
+    Object.entries(st.filters || {}).forEach(([c, v]) => params.set('f.' + c, v));
+    const data = await fetchJSON(`/api/table/${encodeURIComponent(name)}?${params}`);
+    st.page = data.page; st.sort = data.sort; st.dir = data.dir;
+    renderTableData(name, data);
+  } catch (e) {
+    panel.innerHTML = `<div class="spin err">${esc(e.message)}</div>`;
+  }
+}
+
+function isTextCol(c) {
+  return c.type === '' || c.type === 'text' || c.type === 'blob';
+}
+
+function renderTableData(name, data) {
+  const st = tableState.get(name);
+  const panel = $('#tbl-panel');
+  const pages = Math.max(1, Math.ceil(data.filteredTotal / data.limit));
+  st.page = Math.min(data.page, pages);
+
+  const from = data.filteredTotal === 0 ? 0 : (st.page - 1) * data.limit + 1;
+  const to = Math.min(st.page * data.limit, data.filteredTotal);
+  const info = `${from.toLocaleString()}–${to.toLocaleString()} of ${fmtInt(data.filteredTotal)}`;
+  const hasFilters = data.q || Object.keys(st.filters || {}).length;
+  $('#pg-info').textContent = hasFilters
+    ? `${info} (filtered from ${fmtInt(data.total)})`
+    : info;
+  $('#pg-first').disabled = $('#pg-prev').disabled = st.page <= 1;
+  $('#pg-next').disabled = $('#pg-last').disabled = st.page >= pages;
+
+  // Remember filter-row focus/caret so re-rendering doesn't interrupt typing.
+  const active = document.activeElement;
+  const restoreCol = active && active.dataset && active.dataset.col ? active.dataset.col : null;
+  const restorePos = restoreCol && active.selectionStart != null ? active.selectionStart : null;
+
+  const headCells = data.columns.map((c) => {
+    const activeSort = data.sort === c.name;
+    const arrow = activeSort ? (data.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    return `<th class="sortable${/^(int|real)/.test(c.type) ? ' num' : ''}" data-col="${esc(c.name)}" title="${esc(c.name)} ${esc(c.type)}">${esc(c.name)}<span class="arr">${arrow ? (data.dir === 'asc' ? '▲' : '▼') : ''}</span></th>`;
+  }).join('');
+
+  const filterCells = data.columns.map((c) =>
+    `<th>${isTextCol(c)
+      ? `<input data-col="${esc(c.name)}" placeholder="…" value="${esc(st.filters?.[c.name] || '')}" title="Filter by ${esc(c.name)} (substring)">`
+      : ''}</th>`
+  ).join('');
+
+  const tbody = data.rows.length
+    ? data.rows.map((row, ri) => {
+        const trunc = data.truncated[ri] || {};
+        return '<tr>' + data.columns.map((c) => {
+          const v = row[c.name];
+          return `<td class="${/^(int|real)/.test(c.type) ? 'num' : ''}">${renderCell(v, c, trunc[c.name], name, row.__rowid__)}</td>`;
+        }).join('') + '</tr>';
+      }).join('')
+    : `<tr><td colspan="${data.columns.length}" class="muted" style="text-align:center;padding:22px">${hasFilters ? 'no rows match the filters' : 'table is empty'}</td></tr>`;
+
+  panel.innerHTML = `
+    <div class="dt-wrap" style="max-height:calc(100vh - 220px)">
+      <table class="dt">
+        <colgroup></colgroup>
+        <thead>
+          <tr>${headCells}</tr>
+          <tr class="filterrow">${filterCells}</tr>
+        </thead>
+        <tbody id="tbody">${tbody}</tbody>
+      </table>
+    </div>`;
+
+  // Keep the filter row pinned just below the sticky header row.
+  const hrow = panel.querySelector('thead tr:first-child');
+  if (hrow) {
+    const h = hrow.offsetHeight;
+    panel.querySelectorAll('tr.filterrow th').forEach((th) => { th.style.top = h + 'px'; });
+  }
+  if (restoreCol) {
+    const inp = panel.querySelector(`tr.filterrow input[data-col="${CSS.escape(restoreCol)}"]`);
+    if (inp) {
+      inp.focus();
+      try { if (restorePos != null) inp.setSelectionRange(restorePos, restorePos); } catch { /* type=text only */ }
+    }
+  }
+
+  makeResizable(panel.querySelector('table.dt'), 'zcs:colw:tbl:' + name, data.columns.map((c) => c.name));
+
+  panel.querySelectorAll('thead tr:first-child th.sortable').forEach((th) => {
+    th.onclick = () => {
+      const col = th.dataset.col;
+      if (st.sort === col) st.dir = st.dir === 'asc' ? 'desc' : 'asc';
+      else { st.sort = col; st.dir = 'desc'; }
+      st.page = 1;
+      loadTable(name);
+    };
+  });
+
+  panel.querySelectorAll('tr.filterrow input[data-col]').forEach((inp) => {
+    let t;
+    inp.addEventListener('input', () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        const v = inp.value;
+        if (v) st.filters[inp.dataset.col] = v;
+        else delete st.filters[inp.dataset.col];
+        st.page = 1;
+        loadTable(name);
+      }, 350);
+    });
+  });
+
+  $('#tbody').addEventListener('click', onCellClick);
+  function onCellClick(e) {
+    const btn = e.target.closest('[data-full]');
+    if (!btn) return;
+    e.preventDefault();
+    const { table, rowid, col } = btn.dataset;
+    fetchJSON(`/api/cell/${encodeURIComponent(table)}/${rowid}/${encodeURIComponent(col)}`)
+      .then((r) => showModal(`${table}.${col} · rowid ${rowid}${r.truncated ? ' (server-capped at 3 MB)' : ''}`, prettyCell(r.value)))
+      .catch((err) => toast('Cell load failed: ' + err.message));
+  }
+  function prettyCell(v) {
+    if (typeof v !== 'string') return v == null ? 'NULL' : String(v);
+    const t = v.trim();
+    if (t.startsWith('{') || t.startsWith('[')) {
+      try { return JSON.stringify(JSON.parse(t), null, 2); } catch { /* not JSON */ }
+    }
+    return v;
+  }
+}
+
+function renderCell(v, col, truncated, table, rowid) {
+  if (v === null || v === undefined) return '<span class="null">NULL</span>';
+  if (typeof v === 'number') {
+    if (TIMEISH_COL.test(col.name) && looksLikeEpochMs(v)) {
+      return `<span class="datecell" title="epoch ms: ${v}">${esc(fmtDate(v))}</span>`;
+    }
+    return esc(fmtInt(v));
+  }
+  if (typeof v !== 'string') return esc(JSON.stringify(v));
+  const t = v.trim();
+  if (t.length > 1 && (t[0] === '{' || t[0] === '[')) {
+    return `<button class="chip" data-full="1" data-table="${esc(table)}" data-rowid="${rowid}" data-col="${esc(col.name)}" title="View full value">${t[0] === '{' ? '{ … }' : '[ … ]'}</button>`;
+  }
+  if (v.length > 400) {
+    return `<span class="cell-text">${esc(v.slice(0, 400))} …</span> ` +
+      `<button class="chip" data-full="1" data-table="${esc(table)}" data-rowid="${rowid}" data-col="${esc(col.name)}">show full</button>`;
+  }
+  return `<span class="cell-text">${esc(v)}</span>`;
+}
+</script>
+</body>
+</html>
